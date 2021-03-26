@@ -6,13 +6,16 @@ import saml2
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-SPID_BASE_SCHEMA_HOST_PORT = os.environ.get('SPID_BASE_SCHEMA_HOST_PORT', 'http://localhost:8000')
-SPID_URLS_PREFIX = 'spid/'
-SPID_BASE_URL = f'{SPID_BASE_SCHEMA_HOST_PORT}/{SPID_URLS_PREFIX}'
+SPID_URLS_PREFIX = 'spid'
 
-LOGIN_URL = '/spid/login'
-LOGOUT_URL = '/spid/logout'
-LOGIN_REDIRECT_URL = '/spid/echo_attributes'
+SPID_ACS_URL_PATH = f'{SPID_URLS_PREFIX}/acs/'
+SPID_SLO_POST_URL_PATH = f'{SPID_URLS_PREFIX}/ls/post/'
+SPID_SLO_URL_PATH = f'{SPID_URLS_PREFIX}/ls/'
+SPID_METADATA_URL_PATH = f'{SPID_URLS_PREFIX}/metadata/'
+
+LOGIN_URL = f'/{SPID_URLS_PREFIX}/login'
+LOGOUT_URL = f'/{SPID_URLS_PREFIX}/logout'
+LOGIN_REDIRECT_URL = f'/{SPID_URLS_PREFIX}/echo_attributes'
 LOGOUT_REDIRECT_URL = '/'
 
 SPID_DEFAULT_BINDING = saml2.BINDING_HTTP_POST
@@ -27,7 +30,7 @@ SPID_PRIVATE_KEY = os.path.join(SPID_CERTS_DIR, 'private.key')
 
 # source: https://registry.spid.gov.it/identity-providers
 SPID_IDENTITY_PROVIDERS_URL = 'https://registry.spid.gov.it/assets/data/idp.json'
-SPID_IDENTITY_PROVIDERS_METADATAS_DIR = os.path.join(BASE_DIR, 'spid_config/metadata/')
+SPID_IDENTITY_PROVIDERS_METADATA_DIR = os.path.join(BASE_DIR, 'spid_config/metadata/')
 
 SPID_SAML_CHECK_REMOTE_METADATA_ACTIVE = os.environ.get('SPID_SAML_CHECK_REMOTE_METADATA_ACTIVE', 'False') == 'True'
 SPID_SAML_CHECK_METADATA_URL = os.environ.get('SPID_SAML_CHECK_METADATA_URL', 'http://localhost:8080/metadata.xml')
@@ -41,6 +44,9 @@ SPID_PREFIXES = dict(
     fpa='https://spid.gov.it/invoicing-extensions'
 )
 
+# Avviso SPID n. 19 v.4 per enti AGGREGATORI aggiungere chiave vuota PublicServicesFullOperator
+# Il plugin genererà automaticamente anche il tag ContactPerson con l’attributo spid:entityType valorizzato a spid:aggregator
+
 SPID_CONTACTS = [
     {
         'contact_type': 'other',
@@ -48,46 +54,69 @@ SPID_CONTACTS = [
         'email_address': 'tech-info@example.org',
         'VATNumber': 'IT12345678901',
         'FiscalCode': 'XYZABCAAMGGJ000W',
-        'Private': ''
+        'Private': '',
+        #'PublicServicesFullOperator':''
     },
-    {
-        'contact_type': 'billing',
-        'telephone_number': '+39 84756344785',
-        'email_address': 'info@example.org',
-        'company': 'example s.p.a.',
-        # 'CodiceFiscale': 'NGLMRA80A01D086T',
-        'IdCodice': '983745349857',
-        'IdPaese': 'IT',
-        'Denominazione': 'Destinatario Fatturazione',
-        'Indirizzo': 'via tante cose',
-        'NumeroCivico': '12',
-        'CAP': '87100',
-        'Comune': 'Cosenza',
-        'Provincia': 'CS',
-        'Nazione': 'IT',
-    },
+    # {
+        # 'contact_type': 'billing',
+        # 'telephone_number': '+39 84756344785',
+        # 'email_address': 'info@example.org',
+        # 'company': 'example s.p.a.',
+        ## 'CodiceFiscale': 'NGLMRA80A01D086T',
+        # 'IdCodice': '983745349857',
+        # 'IdPaese': 'IT',
+        # 'Denominazione': 'Destinatario Fatturazione',
+        # 'Indirizzo': 'via tante cose',
+        # 'NumeroCivico': '12',
+        # 'CAP': '87100',
+        # 'Comune': 'Cosenza',
+        # 'Provincia': 'CS',
+        # 'Nazione': 'IT',
+    # },
 ]
 
+
+# Configuration for pysaml2 managed by djangosaml2, that is usually replaced or
+# updated by a dynamic configurations adapted for the running Django service.
 SAML_CONFIG = {
+    #
+    # Non SPID-only related info are used for building dynamic running config.
+
+    # you can set multilanguage information here
+    'organization': {
+        'name': [('Example', 'it'), ('Example', 'en')],
+        'display_name': [('Example', 'it'), ('Example', 'en')],
+        'url': [('http://www.example.it', 'it'), ('http://www.example.it', 'en')],
+    },
     'debug': True,
     'xmlsec_binary': get_xmlsec_binary(['/opt/local/bin', '/usr/bin/xmlsec1']),
-    'entityid': f'{SPID_BASE_URL}metadata',
-    'attribute_map_dir': f'{BASE_DIR}/spid_config/attribute-maps/',
+
+    # The following entries are reported here only for show a complete configuration
+    # for pysaml2. When a SPID URL is requested these entries are replaced by proper
+    # configurations, adapted for the running Django service on the basis of the
+    # defined SPID_* settings.
+
+    # TODO: Avviso SPID n. 19 v.4 per enti AGGREGATORI l’entityID deve contenere il codice attività pub-op-full
+    #'entityid': f'{BASE_URL}/pub-op-full/',  # TODO: Aggiungere voce di configurazione SPID_* apposita??
+    'entityid': f'http://localhost:8000/{SPID_URLS_PREFIX}/metadata',
+
+    'attribute_map_dir': f'{BASE_DIR}/djangosaml2_spid/attribute_maps/',
 
     'service': {
         'sp': {
-            'name': f'{SPID_BASE_URL}metadata',
-            'name_qualifier': SPID_BASE_SCHEMA_HOST_PORT,
+            'name': f'http://localhost:8000/{SPID_URLS_PREFIX}/metadata/',
+            'name_qualifier': 'http://localhost:8000',
 
             'name_id_format': [SPID_NAMEID_FORMAT],
 
             'endpoints': {
                 'assertion_consumer_service': [
-                    (f'{SPID_BASE_URL}acs', SPID_DEFAULT_BINDING),
+                    (f'http://localhost:8000/{SPID_ACS_URL_PATH}',
+                     saml2.BINDING_HTTP_POST),
                 ],
                 'single_logout_service': [
-                    (f'{SPID_BASE_URL}ls/post', SPID_DEFAULT_BINDING),
-                    # (f'{SPID_BASE_URL}/ls', saml2.BINDING_HTTP_REDIRECT),
+                    (f'http://localhost:8000/{SPID_SLO_POST_URL_PATH}',
+                     saml2.BINDING_HTTP_POST),
                 ],
             },
 
@@ -149,7 +178,7 @@ SAML_CONFIG = {
     # many metadata, many idp...
     'metadata': {
         'local': [
-            SPID_IDENTITY_PROVIDERS_METADATAS_DIR
+            SPID_IDENTITY_PROVIDERS_METADATA_DIR
         ],
         'remote': []
     },
@@ -163,13 +192,6 @@ SAML_CONFIG = {
         'key_file': SPID_PRIVATE_KEY,
         'cert_file': SPID_PUBLIC_CERT,
     }],
-
-    # you can set multilanguage information here
-    'organization': {
-        'name': [('Example', 'it'), ('Example', 'en')],
-        'display_name': [('Example', 'it'), ('Example', 'en')],
-        'url': [('http://www.example.it', 'it'), ('http://www.example.it', 'en')],
-    },
 }
 
 if SPID_SAML_CHECK_REMOTE_METADATA_ACTIVE:
